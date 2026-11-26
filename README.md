@@ -1,9 +1,8 @@
-# {{ replay mod}}
-Have a bot complete as many levels as you want.
+# Live Level Bot
 
-<img src="logo.png" width="150" alt="the mod's logo" />
+Live Level Bot es un mod de Geode para Geometry Dash que añade un bot de auto-play en vivo y un estudio de macros. Puede analizar obstáculos y superficies próximas, controlar los modos principales del jugador y activar entradas automáticamente mientras juegas. También permite grabar, guardar, importar y reproducir macros basadas en ticks.
 
-*Update logo.png to change your mod's icon (please)*
+<img src="logo.png" width="150" alt="Logo de Live Level Bot" />
 
 ## Getting started
 We recommend heading over to [the getting started section on our docs](https://docs.geode-sdk.org/getting-started/) for useful info on what to do next.
