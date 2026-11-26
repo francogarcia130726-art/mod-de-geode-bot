@@ -170,11 +170,11 @@ class $modify(LiveBotPauseLayer, PauseLayer) {
             menu->addChild(button);
             menu->updateLayout();
         } else {
-            auto* menu = CCMenu::create();
-            menu->addChild(button);
+            auto* fallbackMenu = CCMenu::create();
+            fallbackMenu->addChild(button);
             auto const win = CCDirector::get()->getWinSize();
-            menu->setPosition({ win.width - 64.f, win.height - 34.f });
-            this->addChild(menu, 100);
+            fallbackMenu->setPosition({ win.width - 64.f, win.height - 34.f });
+            this->addChild(fallbackMenu, 100);
         }
     }
 
