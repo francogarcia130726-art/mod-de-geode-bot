@@ -1,5 +1,5 @@
-# {{ name }}
-This is where she makes a mod.
+# {{ replay mod}}
+Have a bot complete as many levels as you want.
 
 <img src="logo.png" width="150" alt="the mod's logo" />
 
