@@ -1,0 +1,17 @@
+{
+	"geode": "{{ geode }}",
+	"gd": {
+		"win": "2.2091",
+		"android": "2.2091",
+		"mac": "2.2091",
+		"ios": "2.2091"
+	},
+	"id": "{{ id }}",
+	"name": "{{ name }}",
+	"version": "{{ version }}",
+	"developer": "{{ developer }}",
+	"description": "{{ description }}",
+	"dependencies": {
+		"geode.node-ids": ">=v1.23.3"
+	}
+}
