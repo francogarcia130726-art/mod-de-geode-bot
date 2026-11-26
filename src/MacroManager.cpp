@@ -395,7 +395,7 @@ bool MacroManager::saveMacro(std::string const& name, std::string& error) {
 }
 
 bool MacroManager::loadMacro(std::filesystem::path const& path, std::string& error) {
-    auto result = utils::file::readString(path);
+    auto result = utils::file::readString(path.string());
     if (!result) {
         error = "No se pudo leer el archivo seleccionado.";
         return false;
@@ -564,7 +564,7 @@ std::vector<MacroSummary> MacroManager::listMacros() const {
     std::error_code ec;
     for (auto const& entry : std::filesystem::directory_iterator(macroDirectory(), ec)) {
         if (ec || !entry.is_regular_file(ec) || entry.path().extension() != ".json") continue;
-        auto contents = utils::file::readString(entry.path());
+        auto contents = utils::file::readString(entry.path().string());
         if (!contents) continue;
         auto parsed = matjson::parse(contents.unwrap());
         if (!parsed || !parsed.unwrap()["actions"].isArray()) continue;
