@@ -284,7 +284,7 @@ void BotMenuPopup::onSaveMacro(CCObject*) {
 
 void BotMenuPopup::onExportMacro(CCObject*) {
     std::string error;
-    std::filesystem::path path;
+    asp::fs::Path path;
     auto const name = currentMacroName();
     if (!MacroManager::get().exportMacro(name, path, error)) {
         showMessage("Exportación", error);
@@ -299,7 +299,7 @@ void BotMenuPopup::onImportFile(CCObject*) {
             .description = "Macros JSON",
             .files = { "*.json" },
         }}
-    }), [](Result<std::optional<std::filesystem::path>> result) {
+    }), [](file::PickResult result) {
         if (!result) {
             FLAlertLayer::create("Importar macro", "No se pudo abrir el selector de archivos.", "OK")->show();
             return;

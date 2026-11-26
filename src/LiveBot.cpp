@@ -467,7 +467,7 @@ void LiveBot::update(PlayLayer* layer, float dt) {
         }
     }
     updatePlayer(layer->m_player1, 0, dt, layerObjects);
-    auto const dualMode = static_cast<GJBaseGameLayer*>(layer)->m_isDualMode && layer->m_player2;
+    auto const dualMode = layer->m_player2 && layer->m_player2->isVisible();
     if (dualMode) updatePlayer(layer->m_player2, 1, dt, layerObjects);
     else {
         for (int button = 1; button <= 3; ++button) setButton(layer->m_player2, 1, button, false);

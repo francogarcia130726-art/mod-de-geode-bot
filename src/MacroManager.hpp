@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
+#include <asp/fs/Path.hpp>
 
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -39,7 +39,7 @@ struct MacroSummary {
     std::string levelName;
     int levelID = 0;
     size_t actionCount = 0;
-    std::filesystem::path path;
+    asp::fs::Path path;
 };
 
 class MacroManager {
@@ -82,14 +82,14 @@ public:
 
     void clearMacro();
     bool saveMacro(std::string const& name, std::string& error);
-    bool loadMacro(std::filesystem::path const& path, std::string& error);
+    bool loadMacro(asp::fs::Path const& path, std::string& error);
     bool loadMacroByName(std::string const& name, std::string& error);
     bool importJson(std::string const& json, std::string& error);
-    bool importFile(std::filesystem::path const& path, std::string& error);
-    bool exportMacro(std::string const& name, std::filesystem::path& outputPath, std::string& error);
-    bool deleteMacro(std::filesystem::path const& path, std::string& error);
+    bool importFile(asp::fs::Path const& path, std::string& error);
+    bool exportMacro(std::string const& name, asp::fs::Path& outputPath, std::string& error);
+    bool deleteMacro(asp::fs::Path const& path, std::string& error);
     std::vector<MacroSummary> listMacros() const;
-    std::filesystem::path macroDirectory() const;
+    asp::fs::Path macroDirectory() const;
 
     void saveOnLevelComplete();
 
@@ -104,7 +104,7 @@ private:
         int id = 0;
     };
 
-    std::filesystem::path pathForName(std::string const& name) const;
+    asp::fs::Path pathForName(std::string const& name) const;
     std::string buildJson(std::string const& name) const;
     bool parseJson(std::string const& json, std::string& error);
     void applyPlayback(PlayerObject* player1, PlayerObject* player2);

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <ctime>
 #include <cstdint>
 #include <limits>
@@ -251,7 +252,7 @@ void MacroManager::applyPlayback(PlayerObject* player1, PlayerObject* player2) {
 }
 
 void MacroManager::releasePlaybackButtons(PlayerObject* player1, PlayerObject* player2) {
-    auto* players[2] = { player1, player2 };
+    PlayerObject* players[2] = { player1, player2 };
     for (int p = 0; p < 2; ++p) {
         for (int b = 0; b < 3; ++b) {
             if (!m_playbackHeld[p][b]) continue;
@@ -336,11 +337,11 @@ void MacroManager::clearMacro() {
     resetAttempt(false);
 }
 
-std::filesystem::path MacroManager::macroDirectory() const {
+asp::fs::Path MacroManager::macroDirectory() const {
     return Mod::get()->getSaveDir() / "macros";
 }
 
-std::filesystem::path MacroManager::pathForName(std::string const& name) const {
+asp::fs::Path MacroManager::pathForName(std::string const& name) const {
     return macroDirectory() / (sanitize(name) + ".json");
 }
 
@@ -380,8 +381,9 @@ bool MacroManager::saveMacro(std::string const& name, std::string& error) {
         error = "La macro actual no tiene acciones.";
         return false;
     }
-    auto const path = pathForName(name);
-    auto const createResult = utils::file::createDirectoryAll(path.parent_path());
+    auto const directory = macroDirectory();
+    auto const path = directory / (sanitize(name) + ".json");
+    auto const createResult = utils::file::createDirectoryAll(directory);
     if (!createResult) {
         error = "No se pudo crear la carpeta de macros.";
         return false;
@@ -394,8 +396,8 @@ bool MacroManager::saveMacro(std::string const& name, std::string& error) {
     return true;
 }
 
-bool MacroManager::loadMacro(std::filesystem::path const& path, std::string& error) {
-    auto result = utils::file::readString(path.string());
+bool MacroManager::loadMacro(asp::fs::Path const& path, std::string& error) {
+    auto result = utils::file::readString(path);
     if (!result) {
         error = "No se pudo leer el archivo seleccionado.";
         return false;
@@ -411,7 +413,7 @@ bool MacroManager::importJson(std::string const& json, std::string& error) {
     return parseJson(json, error);
 }
 
-bool MacroManager::importFile(std::filesystem::path const& path, std::string& error) {
+bool MacroManager::importFile(asp::fs::Path const& path, std::string& error) {
     return loadMacro(path, error);
 }
 
@@ -515,7 +517,7 @@ bool MacroManager::parseJson(std::string const& json, std::string& error) {
     return true;
 }
 
-bool MacroManager::exportMacro(std::string const& name, std::filesystem::path& outputPath, std::string& error) {
+bool MacroManager::exportMacro(std::string const& name, asp::fs::Path& outputPath, std::string& error) {
     if (m_actions.empty()) {
         error = "No hay acciones para exportar.";
         return false;
@@ -540,19 +542,21 @@ bool MacroManager::exportMacro(std::string const& name, std::filesystem::path& o
     return true;
 }
 
-bool MacroManager::deleteMacro(std::filesystem::path const& path, std::string& error) {
-    std::error_code ec;
-    auto const root = std::filesystem::weakly_canonical(macroDirectory(), ec);
-    if (ec) {
+bool MacroManager::deleteMacro(asp::fs::Path const& path, std::string& error) {
+    auto root = macroDirectory().weaklyCanonical();
+    auto candidate = path.weaklyCanonical();
+    if (!root || !candidate) {
         error = "No se pudo acceder a la carpeta de macros.";
         return false;
     }
-    auto const candidate = std::filesystem::weakly_canonical(path, ec);
-    if (ec || candidate.parent_path() != root || candidate.extension() != ".json") {
+    auto const parent = candidate.unwrap().parent();
+    auto const extension = candidate.unwrap().extension();
+    if (!parent || parent->view() != root.unwrap().view().view()
+        || !extension || *extension != "json") {
         error = "La ruta seleccionada no pertenece a la carpeta de macros.";
         return false;
     }
-    if (!std::filesystem::remove(candidate, ec) || ec) {
+    if (std::remove(candidate.unwrap().c_str()) != 0) {
         error = "No se pudo borrar el archivo.";
         return false;
     }
@@ -561,17 +565,19 @@ bool MacroManager::deleteMacro(std::filesystem::path const& path, std::string& e
 
 std::vector<MacroSummary> MacroManager::listMacros() const {
     std::vector<MacroSummary> macros;
-    std::error_code ec;
-    for (auto const& entry : std::filesystem::directory_iterator(macroDirectory(), ec)) {
-        if (ec || !entry.is_regular_file(ec) || entry.path().extension() != ".json") continue;
-        auto contents = utils::file::readString(entry.path().string());
+    auto entries = utils::file::readDirectory(macroDirectory());
+    if (!entries) return macros;
+    for (auto const& path : entries.unwrap()) {
+        auto const extension = path.extension();
+        if (!path.isFile() || !extension || *extension != "json") continue;
+        auto contents = utils::file::readString(path);
         if (!contents) continue;
         auto parsed = matjson::parse(contents.unwrap());
         if (!parsed || !parsed.unwrap()["actions"].isArray()) continue;
         auto const& root = parsed.unwrap();
         MacroSummary summary;
-        summary.path = entry.path();
-        summary.name = root["name"].asString().unwrapOr(entry.path().stem().string());
+        summary.path = path;
+        summary.name = root["name"].asString().unwrapOr(std::string(path.stem().value_or("macro")));
         summary.levelName = root["levelName"].asString().unwrapOr("Unknown Level");
         summary.levelID = static_cast<int>(root["levelID"].asInt().unwrapOr(0));
         summary.actionCount = root["actions"].size();
