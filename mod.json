@@ -10,6 +10,6 @@
 	"name": "Live Level Bot",
 	"version": "v1.0.0",
 	"developer": "FrancoGarcia",
-	"description": "A basic live auto-play bot for cube sections.",
+	"description": "Live auto-play controls and a tick-based macro studio for Geometry Dash.",
 	"tags": ["gameplay", "cheat", "offline"]
 }
