@@ -1,0 +1,22 @@
+name: Build Android
+
+on:
+  push:
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - Android32
+          - Android64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: ${{ matrix.target }}
+          sdk: given
