@@ -1,5 +1,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/modify/GJGameLevel.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/MenuLayer.hpp>
@@ -148,9 +149,23 @@ class $modify(LiveBotPlayLayer, PlayLayer) {
 
     void levelComplete() {
         auto& manager = MacroManager::get();
-        if (manager.safeMode()) return;
+        if (manager.safeMode()) {
+            // Let the vanilla end screen run in test mode so the attempt cannot
+            // commit normal completion rewards or a new percentage.
+            auto const wasTestMode = m_isTestMode;
+            m_isTestMode = true;
+            PlayLayer::levelComplete();
+            m_isTestMode = wasTestMode;
+            return;
+        }
         manager.saveOnLevelComplete();
         PlayLayer::levelComplete();
+    }
+
+    void showNewBest(bool newReward, int orbs, int diamonds, bool demonKey,
+        bool noRetry, bool noTitle) {
+        if (MacroManager::get().safeMode()) return;
+        PlayLayer::showNewBest(newReward, orbs, diamonds, demonKey, noRetry, noTitle);
     }
 
     void onQuit() {
@@ -236,5 +251,13 @@ class $modify(LiveBotMenuLayer, MenuLayer) {
     void update(float dt) {
         MenuLayer::update(dt);
         checkForRestartNotice();
+    }
+};
+
+
+class $modify(LiveBotSafeGameLevel, GJGameLevel) {
+    void savePercentage(int percent, bool isPracticeMode, int clicks, int attempts, bool valid) {
+        if (MacroManager::get().safeMode()) return;
+        GJGameLevel::savePercentage(percent, isPracticeMode, clicks, attempts, valid);
     }
 };
