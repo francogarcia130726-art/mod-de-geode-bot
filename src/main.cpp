@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
+#include <Geode/modify/MenuLayer.hpp>
 
 #include "BotMenuPopup.hpp"
 #include "LiveBot.hpp"
@@ -49,6 +50,30 @@ namespace {
     }
 
 }
+
+class $modify(LiveBotMenuLayer, MenuLayer) {
+    void onEnter() {
+        MenuLayer::onEnter();
+
+        // Geode marks an installed update with this action until the next restart.
+        static bool shownRestartNotice = false;
+        auto* mod = Mod::get();
+        if (!shownRestartNotice && mod &&
+            mod->getRequestedAction() == ModRequestedAction::Update) {
+            auto* popup = FLAlertLayer::create(
+                "Restart required",
+                "The new <cy>Live Level Bot</c> update has been downloaded. "
+                "Please <cy>restart Geometry Dash</c> to apply it.",
+                "OK"
+            );
+            if (popup) {
+                shownRestartNotice = true;
+                popup->m_noElasticity = true;
+                popup->show();
+            }
+        }
+    }
+};
 
 class $modify(LiveBotPlayLayer, PlayLayer) {
     struct Fields {
