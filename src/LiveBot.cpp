@@ -527,7 +527,8 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
     auto const imminentEdge = edgeClose
         && edgeDistance <= std::max(8.f, triggerDistance * 0.25f);
 
-    auto const decisionDistance = threat ? threatDistance : edgeDistance;
+    auto const decisionDistance = obstacleClose && (!edgeClose || threatDistance <= edgeDistance)
+        ? threatDistance : edgeDistance;
     // Select an absolute virtual simulation rate, then convert it to the
     // number of substeps required for this real frame duration.
     int targetSimulationHz = 60;
