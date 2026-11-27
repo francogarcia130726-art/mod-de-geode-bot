@@ -65,7 +65,9 @@ namespace {
         label->setVisible(enabled);
         if (enabled && layer) {
             auto const progress = static_cast<int>(std::clamp(layer->getCurrentPercent(), 0.f, 100.f));
-            label->setString(fmt::format("{}  {}%  t{}", MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
+            label->setString(fmt::format("{}{}  {}%  t{}",
+                manager.safeMode() ? "SAFE | " : "",
+                MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
         }
     }
 
