@@ -314,6 +314,7 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
     auto const modeBall = player->m_isBall;
     auto const modeSpider = player->m_isSpider;
     bool jumped = false;
+    bool airborne = !player->m_isOnGround;
     auto const startsGrounded = player->m_isOnGround;
     auto const impulse = (player->m_isRobot ? 500.f : 455.f)
         * std::clamp(player->m_vehicleSize, 0.5f, 1.5f);
@@ -326,16 +327,16 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
             && frameIndex < delayFrames + std::max(1, holdFrames);
 
         if (press && !jumped && frameIndex == delayFrames) {
-            if (startsGrounded && !modeShip && !modeUfo && !modeWave && !modeBall && !modeSpider) {
+            if (startsGrounded && !airborne && !modeShip && !modeUfo && !modeWave && !modeBall && !modeSpider) {
                 vy = -gravityDirection * impulse;
                 jumped = true;
-            } else if (modeUfo) {
+            } else if (!airborne && modeUfo) {
                 vy = -gravityDirection * 390.f;
                 jumped = true;
-            } else if (modeBall) {
+            } else if (!airborne && modeBall) {
                 vy = -gravityDirection * vy;
                 jumped = true;
-            } else if (modeSpider) {
+            } else if (!airborne && modeSpider) {
                 vy = -gravityDirection * 350.f;
                 jumped = true;
             }
@@ -351,7 +352,7 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
 
         // A grounded player remains supported until the simulated jump begins.
         // This avoids the old rollout incorrectly dropping the player at t=0.
-        if (jumped || !startsGrounded) {
+        if (jumped || airborne) {
             y += vy * stepDt + 0.5f * g * stepDt * stepDt;
             vy += g * stepDt;
         }
@@ -364,6 +365,27 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
         for (auto* object : objects) {
             if (!isBlockingObject(object)) continue;
             if (overlaps(predicted, object->getObjectRect())) return false;
+        }
+
+        // Track whether the virtual player still has a supporting surface.
+        // A delayed jump after walking off a ledge must not be scored as viable.
+        if (startsGrounded && !jumped && !airborne) {
+            auto const playerSurface = player->m_isUpsideDown ? topOf(predicted) : bottomOf(predicted);
+            bool hasSupport = false;
+            for (auto* object : objects) {
+                if (!object || (object->m_objectType != GameObjectType::Solid
+                    && object->m_objectType != GameObjectType::Breakable)) continue;
+                auto const platform = object->getObjectRect();
+                auto const platformSurface = player->m_isUpsideDown ? bottomOf(platform) : topOf(platform);
+                auto const horizontalOverlap = std::min(rightOf(predicted), rightOf(platform))
+                    - std::max(leftOf(predicted), leftOf(platform));
+                if (horizontalOverlap >= predicted.size.width * 0.2f
+                    && std::fabs(platformSurface - playerSurface) <= 10.f) {
+                    hasSupport = true;
+                    break;
+                }
+            }
+            if (!hasSupport) airborne = true;
         }
 
         if (!player->m_isUpsideDown && y < centerY(initialRect) - playerHeight * 5.f) return false;
