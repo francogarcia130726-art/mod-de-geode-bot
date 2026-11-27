@@ -38,6 +38,8 @@ private:
         bool deathHandled = false;
         int learningLevelID = -1;
         int learnedFailures = 0;
+        int plannedJumpDelay = -1;
+        int plannedJumpHold = 1;
     };
 
     bool isBlockingObject(GameObject* object) const;
@@ -56,7 +58,8 @@ private:
     float chooseFlightTarget(PlayerObject* player, float range, PlayerState& state,
         std::vector<GameObject*> const& objects) const;
     bool rolloutSurvives(PlayerObject* player, std::vector<GameObject*> const& objects,
-        bool press, int holdFrames, float gravity, float dt) const;
+        bool press, int holdFrames, float gravity, float dt,
+        int delayFrames = 0, int substepsPerFrame = 1) const;
 
     std::array<PlayerState, 2> m_players;
     PlayLayer* m_layer = nullptr;
