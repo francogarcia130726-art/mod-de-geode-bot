@@ -79,6 +79,8 @@ public:
     void setHudEnabled(bool enabled);
     float lookaheadMultiplier() const;
     void setLookaheadMultiplier(float value);
+    bool safeMode() const;
+    void setSafeMode(bool enabled);
 
     void clearMacro();
     bool saveMacro(std::string const& name, std::string& error);
@@ -127,6 +129,7 @@ private:
     bool m_floatingButtonEnabled = false;
     bool m_hudEnabled = true;
     float m_lookaheadMultiplier = 1.f;
+    bool m_safeMode = false;
     bool m_playbackHeld[2][3] = {};
     PlayerObject* m_lastPlayer1 = nullptr;
     PlayerObject* m_lastPlayer2 = nullptr;
