@@ -72,18 +72,32 @@ class $modify(LiveBotPlayLayer, PlayLayer) {
         showHud(m_fields->hud, m_uiLayer, this);
         auto& manager = MacroManager::get();
         if (!m_fields->floatingMenu && m_uiLayer) {
-            auto* text = CCLabelBMFont::create("LB", "bigFont.fnt");
-            auto* sprite = text
-                ? CircleButtonSprite::create(text, CircleBaseColor::Green, CircleBaseSize::Small)
+            // Keep the bot toggle and studio launcher in the gameplay layer.
+            // Opening the studio from PauseLayer necessarily leaves the level paused.
+            auto* botText = CCLabelBMFont::create("LB", "bigFont.fnt");
+            auto* botSprite = botText
+                ? CircleButtonSprite::create(botText, CircleBaseColor::Green, CircleBaseSize::Small)
                 : nullptr;
+            auto* botItem = botSprite
+                ? CCMenuItemSpriteExtra::create(botSprite, this, menu_selector(LiveBotPlayLayer::onLiveBotButton))
+                : nullptr;
+
+            auto* studioText = CCLabelBMFont::create("UI", "bigFont.fnt");
+            auto* studioSprite = studioText
+                ? CircleButtonSprite::create(studioText, CircleBaseColor::Blue, CircleBaseSize::Small)
+                : nullptr;
+            auto* studioItem = studioSprite
+                ? CCMenuItemSpriteExtra::create(studioSprite, this, menu_selector(LiveBotPlayLayer::onOpenBotStudio))
+                : nullptr;
+
             auto* menu = CCMenu::create();
-            auto* item = sprite
-                ? CCMenuItemSpriteExtra::create(sprite, this, menu_selector(LiveBotPlayLayer::onLiveBotButton))
-                : nullptr;
-            if (menu && item) {
-                menu->addChild(item);
+            if (menu && botItem && studioItem) {
+                botItem->setPosition({ -22.f, 0.f });
+                studioItem->setPosition({ 22.f, 0.f });
+                menu->addChild(botItem);
+                menu->addChild(studioItem);
                 auto const win = CCDirector::get()->getWinSize();
-                menu->setPosition({ win.width - 32.f, win.height - 34.f });
+                menu->setPosition({ win.width - 54.f, win.height - 34.f });
                 menu->setZOrder(1001);
                 menu->setID("livebot-floating-menu");
                 m_uiLayer->addChild(menu);
@@ -129,6 +143,10 @@ class $modify(LiveBotPlayLayer, PlayLayer) {
             manager.setMode(BotMode::LiveBot);
             LiveBot::get().reset(this);
         }
+    }
+
+    void onOpenBotStudio(CCObject*) {
+        BotMenuPopup::open();
     }
 };
 
