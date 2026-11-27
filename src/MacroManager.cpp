@@ -82,6 +82,7 @@ MacroManager::MacroManager() {
     m_lookaheadMultiplier = std::clamp(
         mod->getSavedValue<float>("lookahead-multiplier", 1.f), 0.70f, 1.40f
     );
+    m_safeMode = mod->getSavedValue<bool>("safe-mode", false);
 }
 
 BotMode MacroManager::mode() const { return m_mode; }
@@ -328,6 +329,11 @@ float MacroManager::lookaheadMultiplier() const { return m_lookaheadMultiplier; 
 void MacroManager::setLookaheadMultiplier(float value) {
     m_lookaheadMultiplier = std::clamp(value, 0.70f, 1.40f);
     Mod::get()->setSavedValue("lookahead-multiplier", m_lookaheadMultiplier);
+}
+bool MacroManager::safeMode() const { return m_safeMode; }
+void MacroManager::setSafeMode(bool enabled) {
+    m_safeMode = enabled;
+    Mod::get()->setSavedValue("safe-mode", enabled);
 }
 
 void MacroManager::clearMacro() {
