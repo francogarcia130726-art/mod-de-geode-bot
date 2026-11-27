@@ -359,11 +359,36 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         state.lastMode = signature;
         state.lastUpsideDown = player->m_isUpsideDown;
     }
+    auto& mod = *Mod::get();
+    auto const levelID = MacroManager::get().levelID();
+    if (state.learningLevelID != levelID) {
+        state.learningLevelID = levelID;
+        auto const key = fmt::format("livebot-learning-{}-{}", levelID, playerIndex);
+        state.learnedTriggerBias = std::clamp(mod.getSavedValue<float>(key + "-bias", 0.f), -30.f, 30.f);
+        state.learnedFailures = std::max(0, mod.getSavedValue<int>(key + "-failures", 0));
+        state.hasRecentDecision = false;
+        state.deathHandled = false;
+    }
+
     if (player->m_isDead) {
+        if (!state.deathHandled) {
+            state.deathHandled = true;
+            if (state.hasRecentDecision && MacroManager::get().tick() - state.lastDecisionTick <= 90) {
+                // A death shortly after a jump suggests the bot acted too early;
+                // a death after declining a nearby jump suggests it should react sooner.
+                auto const adjustment = state.lastDecisionWasJump ? -2.5f : 3.5f;
+                state.learnedTriggerBias = std::clamp(state.learnedTriggerBias + adjustment, -30.f, 30.f);
+                state.learnedFailures = std::min(state.learnedFailures + 1, 100000);
+                auto const key = fmt::format("livebot-learning-{}-{}", levelID, playerIndex);
+                mod.setSavedValue(key + "-bias", state.learnedTriggerBias);
+                mod.setSavedValue(key + "-failures", state.learnedFailures);
+            }
+        }
         for (int button = 1; button <= 3; ++button) setButton(player, playerIndex, button, false);
         state.pulseFrames = 0;
         return;
     }
+    state.deathHandled = false;
 
     if (state.cooldown > 0) --state.cooldown;
     if (state.pulseFrames > 0 && --state.pulseFrames == 0) setButton(player, playerIndex, 1, false);
@@ -396,7 +421,8 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
     float threatDistance = range + 1.f;
     auto* threat = nearestGroundThreat(player, range, threatDistance, nearby);
     auto const edgeDistance = platformEdgeDistance(player, range, nearby);
-    auto const triggerDistance = std::clamp(std::fabs(player->m_playerSpeed) * 0.19f, 26.f, 100.f);
+    auto const baseTriggerDistance = std::clamp(std::fabs(player->m_playerSpeed) * 0.19f, 26.f, 100.f);
+    auto const triggerDistance = std::clamp(baseTriggerDistance + state.learnedTriggerBias, 18.f, 140.f);
 
     if (isVehicleFlying(player)) {
         if (!state.flightTargetInitialized) {
@@ -449,7 +475,16 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         && edgeDistance <= std::max(8.f, triggerDistance * 0.25f);
     if (jumpSurvives && (!noInputSurvives || imminentEdge)) {
         pulse(player, playerIndex, jumpHold);
+        state.lastDecisionWasJump = true;
+        state.lastDecisionTick = MacroManager::get().tick();
+        state.lastThreatDistance = threat ? threatDistance : edgeDistance;
+        state.hasRecentDecision = true;
         state.cooldown = highRobotJump ? 16 : 9;
+    } else if (obstacleClose || edgeClose) {
+        state.lastDecisionWasJump = false;
+        state.lastDecisionTick = MacroManager::get().tick();
+        state.lastThreatDistance = threat ? threatDistance : edgeDistance;
+        state.hasRecentDecision = true;
     }
 }
 
