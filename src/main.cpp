@@ -61,13 +61,14 @@ namespace {
             }
         }
         if (!label) return;
-        auto const enabled = manager.mode() != BotMode::Off && manager.hudEnabled();
+        auto const safeActive = manager.safeMode();
+        auto const enabled = safeActive || (manager.mode() != BotMode::Off && manager.hudEnabled());
         label->setVisible(enabled);
         if (enabled && layer) {
             auto const progress = static_cast<int>(std::clamp(layer->getCurrentPercent(), 0.f, 100.f));
-            label->setString(fmt::format("{}{}  {}%  t{}",
-                manager.safeMode() ? "SAFE | " : "",
-                MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
+            label->setString(safeActive
+                ? fmt::format("SAFE MODE ACTIVE  |  {}  {}%", MacroManager::modeName(manager.mode()), progress).c_str()
+                : fmt::format("{}  {}%  t{}", MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
         }
     }
 
@@ -146,7 +147,9 @@ class $modify(LiveBotPlayLayer, PlayLayer) {
     }
 
     void levelComplete() {
-        MacroManager::get().saveOnLevelComplete();
+        auto& manager = MacroManager::get();
+        if (manager.safeMode()) return;
+        manager.saveOnLevelComplete();
         PlayLayer::levelComplete();
     }
 
