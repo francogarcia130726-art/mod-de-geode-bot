@@ -1,6 +1,6 @@
 # Live Level Bot
 
-Live Level Bot es un mod de Geode para Geometry Dash que añade un bot de auto-play en vivo y un estudio de macros. Puede analizar obstáculos y superficies próximas, controlar los modos principales del jugador y activar entradas automáticamente mientras juegas. También permite grabar, guardar, importar y reproducir macros basadas en ticks.
+Live Level Bot es un mod de Geode para Geometry Dash que añade un bot de auto-play en vivo y un estudio de macros. Puede analizar obstáculos y superficies próximas, simular trayectorias alternativas con distintas precisiones y planificar el momento del salto antes de activar entradas automáticamente. El planificador predictivo complementa el control en vivo; su precisión depende del modelo aproximado de física y requiere validación dentro del juego. También permite grabar, guardar, importar y reproducir macros basadas en ticks.
 
 <img src="logo.png" width="150" alt="Logo de Live Level Bot" />
 
