@@ -11,7 +11,7 @@ using namespace geode::prelude;
 namespace {
     constexpr float kMinLookAhead = 100.f;
     constexpr float kMaxLookAhead = 480.f;
-    constexpr int kRolloutSteps = 12;
+    constexpr int kRolloutSteps = 20;
 
     float leftOf(CCRect const& rect) { return rect.origin.x; }
     float rightOf(CCRect const& rect) { return rect.origin.x + rect.size.width; }
@@ -442,7 +442,12 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
     auto const jumpSurvives = rolloutSurvives(player, nearby, true, jumpHold,
         state.gravityEstimate, dt);
 
-    if (jumpSurvives && (!noInputSurvives || obstacleClose || edgeClose)) {
+    // Prefer the no-input trajectory whenever it is already safe. Only jump
+    // for a confirmed predicted collision, or at the last safe moment before
+    // losing platform support (the rollout currently models obstacles, not ledges).
+    auto const imminentEdge = edgeClose
+        && edgeDistance <= std::max(8.f, triggerDistance * 0.25f);
+    if (jumpSurvives && (!noInputSurvives || imminentEdge)) {
         pulse(player, playerIndex, jumpHold);
         state.cooldown = highRobotJump ? 16 : 9;
     }
