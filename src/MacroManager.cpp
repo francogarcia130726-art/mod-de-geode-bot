@@ -148,6 +148,7 @@ void MacroManager::beginLevel(PlayLayer* layer, int levelID, std::string levelNa
 
 void MacroManager::endLevel(PlayLayer* layer) {
     if (m_activeLayer != layer) return;
+    m_safeModeAttemptActive = false;
     m_activeLayer = nullptr;
     m_lastPlayer1 = nullptr;
     m_lastPlayer2 = nullptr;
