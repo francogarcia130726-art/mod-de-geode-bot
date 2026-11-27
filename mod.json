@@ -8,8 +8,8 @@
 	},
 	"id": "francogarcia.livebot",
 	"name": "Live Level Bot",
-	"version": "v1.0.3",
+	"version": "v1.0.4",
 	"developer": "FrancoGarcia",
-	"description": "Adaptive predictive live auto-play and a tick-based macro studio for Geometry Dash.",
+	"description": "Adaptive predictive live auto-play, conservative Safe Mode and a tick-based macro studio for Geometry Dash.",
 	"tags": ["gameplay", "cheat", "offline"]
 }
