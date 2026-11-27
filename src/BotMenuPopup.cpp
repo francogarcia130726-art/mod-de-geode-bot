@@ -58,7 +58,7 @@ void BotMenuPopup::open() {
 }
 
 bool BotMenuPopup::init() {
-    if (!Popup::init(450.f, 290.f)) return false;
+    if (!Popup::init(450.f, 290.f, "GJ_square02.png")) return false;
     this->setTitle("Live Level Bot & Macro Studio", "goldFont.fnt", 0.62f, 20.f);
 
     m_tabMenu = CCMenu::create();
@@ -79,12 +79,9 @@ void BotMenuPopup::addButton(CCMenu* menu, char const* title, CCPoint position,
     sprite->setScale(scale);
     auto* item = CCMenuItemSpriteExtra::create(sprite, this, callback);
     if (!item) return;
-    if (menu == m_pageMenu && m_pageRoot) {
-        auto const size = m_pageRoot->getContentSize();
-        item->setPosition({ size.width * 0.5f + position.x, size.height * 0.5f + position.y });
-    } else {
-        item->setPosition(position);
-    }
+    // m_pageMenu is already positioned at the center of m_pageRoot.
+    // Adding the page center here again pushed every page control off-screen.
+    item->setPosition(position);
     menu->addChild(item);
 }
 
