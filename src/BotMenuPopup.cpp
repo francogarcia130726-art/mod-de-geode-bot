@@ -213,9 +213,6 @@ void BotMenuPopup::renderSettingsPage() {
         fmt::format("Bloquear toque en Playback: {}", toggleName(manager.blockManualPlayback())).c_str(),
         { 0.f, -34.f }, menu_selector(BotMenuPopup::onTogglePlaybackLock), 0.45f);
     addButton(m_pageMenu,
-        fmt::format("Safe Mode conservador: {}", toggleName(manager.safeMode())).c_str(),
-        { 0.f, -68.f }, menu_selector(BotMenuPopup::onToggleSafeMode), 0.45f);
-    addButton(m_pageMenu,
         fmt::format("Anticipación Live Bot: {:.2f}x", manager.lookaheadMultiplier()).c_str(),
         { 0.f, -104.f }, menu_selector(BotMenuPopup::onCycleLookahead), 0.45f);
     addButton(m_pageMenu, "PARADA DE EMERGENCIA - BOT OFF",
@@ -369,13 +366,6 @@ void BotMenuPopup::onToggleHud(CCObject*) {
 void BotMenuPopup::onTogglePlaybackLock(CCObject*) {
     auto& manager = MacroManager::get();
     manager.setBlockManualPlayback(!manager.blockManualPlayback());
-    refreshPage();
-}
-
-void BotMenuPopup::onToggleSafeMode(CCObject*) {
-    auto& manager = MacroManager::get();
-    manager.setSafeMode(!manager.safeMode());
-    if (manager.safeMode()) manager.setLookaheadMultiplier(std::min(manager.lookaheadMultiplier(), 0.85f));
     refreshPage();
 }
 
