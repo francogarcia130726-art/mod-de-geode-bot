@@ -214,7 +214,9 @@ void BotMenuPopup::renderSettingsPage() {
         { 0.f, -34.f }, menu_selector(BotMenuPopup::onTogglePlaybackLock), 0.45f);
     addButton(m_pageMenu,
         fmt::format("Anticipación Live Bot: {:.2f}x", manager.lookaheadMultiplier()).c_str(),
-        { 0.f, -72.f }, menu_selector(BotMenuPopup::onCycleLookahead), 0.45f);
+        { 0.f, -104.f }, menu_selector(BotMenuPopup::onCycleLookahead), 0.45f);
+    addButton(m_pageMenu, "PARADA DE EMERGENCIA - BOT OFF",
+        { 0.f, -142.f }, menu_selector(BotMenuPopup::onEmergencyStop), 0.39f);
 }
 
 void BotMenuPopup::onTabControl(CCObject*) { switchTab(0); }
@@ -364,6 +366,13 @@ void BotMenuPopup::onToggleHud(CCObject*) {
 void BotMenuPopup::onTogglePlaybackLock(CCObject*) {
     auto& manager = MacroManager::get();
     manager.setBlockManualPlayback(!manager.blockManualPlayback());
+    refreshPage();
+}
+
+void BotMenuPopup::onEmergencyStop(CCObject*) {
+    auto& manager = MacroManager::get();
+    if (auto* layer = manager.activeLayer()) LiveBot::get().releaseAll(layer);
+    manager.setMode(BotMode::Off);
     refreshPage();
 }
 

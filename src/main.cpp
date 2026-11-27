@@ -1,5 +1,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
+#include <Geode/modify/GJGameLevel.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/MenuLayer.hpp>
@@ -61,11 +62,14 @@ namespace {
             }
         }
         if (!label) return;
-        auto const enabled = manager.mode() != BotMode::Off && manager.hudEnabled();
+        auto const safeActive = manager.safeMode();
+        auto const enabled = safeActive || (manager.mode() != BotMode::Off && manager.hudEnabled());
         label->setVisible(enabled);
         if (enabled && layer) {
             auto const progress = static_cast<int>(std::clamp(layer->getCurrentPercent(), 0.f, 100.f));
-            label->setString(fmt::format("{}  {}%  t{}", MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
+            label->setString(safeActive
+                ? fmt::format("SAFE MODE ACTIVE  |  {}  {}%", MacroManager::modeName(manager.mode()), progress).c_str()
+                : fmt::format("{}  {}%  t{}", MacroManager::modeName(manager.mode()), progress, manager.tick()).c_str());
         }
     }
 
@@ -144,8 +148,24 @@ class $modify(LiveBotPlayLayer, PlayLayer) {
     }
 
     void levelComplete() {
-        MacroManager::get().saveOnLevelComplete();
+        auto& manager = MacroManager::get();
+        if (manager.safeMode()) {
+            // Let the vanilla end screen run in test mode so the attempt cannot
+            // commit normal completion rewards or a new percentage.
+            auto const wasTestMode = m_isTestMode;
+            m_isTestMode = true;
+            PlayLayer::levelComplete();
+            m_isTestMode = wasTestMode;
+            return;
+        }
+        manager.saveOnLevelComplete();
         PlayLayer::levelComplete();
+    }
+
+    void showNewBest(bool newReward, int orbs, int diamonds, bool demonKey,
+        bool noRetry, bool noTitle) {
+        if (MacroManager::get().safeMode()) return;
+        PlayLayer::showNewBest(newReward, orbs, diamonds, demonKey, noRetry, noTitle);
     }
 
     void onQuit() {
@@ -231,5 +251,13 @@ class $modify(LiveBotMenuLayer, MenuLayer) {
     void update(float dt) {
         MenuLayer::update(dt);
         checkForRestartNotice();
+    }
+};
+
+
+class $modify(LiveBotSafeGameLevel, GJGameLevel) {
+    void savePercentage(int percent, bool isPracticeMode, int clicks, int attempts, bool valid) {
+        if (MacroManager::get().safeMode()) return;
+        GJGameLevel::savePercentage(percent, isPracticeMode, clicks, attempts, valid);
     }
 };

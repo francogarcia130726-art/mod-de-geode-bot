@@ -44,6 +44,7 @@ private:
     void onToggleHud(cocos2d::CCObject*);
     void onTogglePlaybackLock(cocos2d::CCObject*);
     void onCycleLookahead(cocos2d::CCObject*);
+    void onEmergencyStop(cocos2d::CCObject*);
 
     int m_tab = 0;
     cocos2d::CCMenu* m_tabMenu = nullptr;
