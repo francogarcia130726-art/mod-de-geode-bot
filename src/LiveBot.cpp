@@ -303,8 +303,8 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
     // dt is the real frame duration. Virtual substeps improve collision sampling
     // without changing the game's rendering or physics frame rate.
     auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
-    auto const substeps = std::clamp(substepsPerFrame, 1, 16);
-    constexpr int horizonFrames = 24;
+    auto const substeps = std::clamp(substepsPerFrame, 1, 32);
+    auto const horizonFrames = std::clamp(static_cast<int>(std::ceil(0.4f / frameDt)), 1, 120);
     auto const speed = std::max(80.f, std::fabs(player->m_playerSpeed));
     auto y = centerY(initialRect);
     auto vy = player->m_yVelocity;
@@ -506,13 +506,16 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         && edgeDistance <= std::max(8.f, triggerDistance * 0.25f);
 
     auto const decisionDistance = threat ? threatDistance : edgeDistance;
-    // Adaptive virtual simulation tiers: 60/120/240/480/960 samples per
-    // rendered frame. Higher precision is reserved for close, difficult hazards.
-    int simulationSubsteps = 1;
-    if (decisionDistance <= 18.f) simulationSubsteps = 16;
-    else if (decisionDistance <= 30.f) simulationSubsteps = 8;
-    else if (decisionDistance <= 48.f) simulationSubsteps = 4;
-    else if (decisionDistance <= 80.f) simulationSubsteps = 2;
+    // Select an absolute virtual simulation rate, then convert it to the
+    // number of substeps required for this real frame duration.
+    int targetSimulationHz = 60;
+    if (decisionDistance <= 18.f) targetSimulationHz = 960;
+    else if (decisionDistance <= 30.f) targetSimulationHz = 480;
+    else if (decisionDistance <= 48.f) targetSimulationHz = 240;
+    else if (decisionDistance <= 80.f) targetSimulationHz = 120;
+    auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
+    auto const simulationSubsteps = std::clamp(
+        static_cast<int>(std::ceil(frameDt * static_cast<float>(targetSimulationHz))), 1, 32);
 
     auto const noInputSurvives = rolloutSurvives(player, nearby, false, 0,
         state.gravityEstimate, dt, 0, simulationSubsteps);
@@ -525,7 +528,6 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
 
     // Search a short sequence of candidate jump times. The farthest safe delay
     // avoids jumping prematurely; the countdown is kept monotonic between frames.
-    auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
     auto const speed = std::max(80.f, std::fabs(player->m_playerSpeed));
     auto const travelFrames = static_cast<int>(decisionDistance / (speed * frameDt));
     auto const maxDelay = std::clamp(travelFrames - 2, 0, 8);
