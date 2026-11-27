@@ -11,7 +11,6 @@ using namespace geode::prelude;
 namespace {
     constexpr float kMinLookAhead = 100.f;
     constexpr float kMaxLookAhead = 480.f;
-    constexpr int kRolloutSteps = 20;
 
     float leftOf(CCRect const& rect) { return rect.origin.x; }
     float rightOf(CCRect const& rect) { return rect.origin.x + rect.size.width; }
@@ -483,10 +482,20 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         return;
     }
 
-    if (!player->m_isOnGround || state.cooldown > 0) return;
+    if (!player->m_isOnGround) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
+    if (state.cooldown > 0) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
     auto const obstacleClose = threat && threatDistance <= triggerDistance;
     auto const edgeClose = edgeDistance <= triggerDistance;
-    if (!obstacleClose && !edgeClose) return;
+    if (!obstacleClose && !edgeClose) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
 
     auto const obstacleRect = threat ? threat->getObjectRect() : CCRect(0.f, 0.f, 0.f, 0.f);
     auto const obstacleHeight = threat ? std::max(0.f, topOf(obstacleRect) - bottomOf(playerRect)) : 0.f;
