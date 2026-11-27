@@ -30,6 +30,14 @@ private:
         int lastMode = -1;
         bool lastUpsideDown = false;
         GameObject* lastOrb = nullptr;
+        float learnedTriggerBias = 0.f;
+        float lastThreatDistance = 0.f;
+        int lastDecisionTick = -100000;
+        bool lastDecisionWasJump = false;
+        bool hasRecentDecision = false;
+        bool deathHandled = false;
+        int learningLevelID = -1;
+        int learnedFailures = 0;
     };
 
     bool isBlockingObject(GameObject* object) const;
