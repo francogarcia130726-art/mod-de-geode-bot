@@ -84,8 +84,12 @@ float LiveBot::lookAhead(PlayerObject* player) const {
     auto const speed = std::fabs(player->m_playerSpeed);
     auto const gravityMultiplier = std::sqrt(std::clamp(std::fabs(player->m_gravityMod), 0.4f, 2.5f))
         * (player->m_isUpsideDown ? 1.08f : 1.f);
-    return std::clamp(speed * 0.62f * gravityMultiplier
-        * MacroManager::get().lookaheadMultiplier(), kMinLookAhead, kMaxLookAhead);
+    auto const& manager = MacroManager::get();
+    auto const multiplier = manager.safeMode()
+        ? std::min(manager.lookaheadMultiplier(), 0.85f)
+        : manager.lookaheadMultiplier();
+    return std::clamp(speed * 0.62f * gravityMultiplier * multiplier,
+        kMinLookAhead, kMaxLookAhead);
 }
 
 void LiveBot::setButton(PlayerObject* player, int playerIndex, int button, bool down) {
@@ -467,6 +471,16 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         nearby.push_back(object);
     }
 
+    // Safe Mode only automates the standard cube and robot forms. Other
+    // movement modes use different input/physics rules and are left untouched.
+    if (MacroManager::get().safeMode()
+        && !player->m_isRobot && modeSignature(player) != 0) {
+        setButton(player, playerIndex, 1, false);
+        state.pulseFrames = 0;
+        state.plannedJumpDelay = -1;
+        return;
+    }
+
     if (triggerOrb(player, playerIndex, nearby)) return;
 
     float threatDistance = range + 1.f;
@@ -537,6 +551,7 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
     else if (decisionDistance <= 48.f) targetSimulationHz = 240;
     else if (decisionDistance <= 80.f) targetSimulationHz = 120;
     auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
+    if (MacroManager::get().safeMode()) targetSimulationHz = std::min(targetSimulationHz, 240);
     auto const simulationSubsteps = std::clamp(
         static_cast<int>(std::ceil(frameDt * static_cast<float>(targetSimulationHz))), 1, 32);
 
