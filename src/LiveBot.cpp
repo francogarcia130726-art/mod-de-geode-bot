@@ -11,7 +11,6 @@ using namespace geode::prelude;
 namespace {
     constexpr float kMinLookAhead = 100.f;
     constexpr float kMaxLookAhead = 480.f;
-    constexpr int kRolloutSteps = 20;
 
     float leftOf(CCRect const& rect) { return rect.origin.x; }
     float rightOf(CCRect const& rect) { return rect.origin.x + rect.size.width; }
@@ -294,12 +293,18 @@ float LiveBot::chooseFlightTarget(PlayerObject* player, float range, PlayerState
 }
 
 bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> const& objects,
-    bool press, int holdFrames, float gravity, float dt) const {
+    bool press, int holdFrames, float gravity, float dt, int delayFrames,
+    int substepsPerFrame) const {
     auto const initialRect = player->getObjectRect();
     auto const playerHeight = initialRect.size.height;
     auto const gravityDirection = player->m_isUpsideDown ? 1.f : -1.f;
-    auto const g = gravityDirection * gravity * std::clamp(player->m_gravityMod, 0.4f, 2.5f);
-    auto const frameDt = std::clamp(dt, 1.f / 120.f, 1.f / 30.f);
+    auto const gravityScale = std::clamp(std::fabs(player->m_gravityMod), 0.4f, 2.5f);
+    auto const g = gravityDirection * gravity * gravityScale;
+    // dt is the real frame duration. Virtual substeps improve collision sampling
+    // without changing the game's rendering or physics frame rate.
+    auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
+    auto const substeps = std::clamp(substepsPerFrame, 1, 32);
+    auto const horizonFrames = std::clamp(static_cast<int>(std::ceil(0.4f / frameDt)), 1, 120);
     auto const speed = std::max(80.f, std::fabs(player->m_playerSpeed));
     auto y = centerY(initialRect);
     auto vy = player->m_yVelocity;
@@ -308,37 +313,81 @@ bool LiveBot::rolloutSurvives(PlayerObject* player, std::vector<GameObject*> con
     auto const modeWave = player->m_isDart;
     auto const modeBall = player->m_isBall;
     auto const modeSpider = player->m_isSpider;
+    bool jumped = false;
+    bool airborne = !player->m_isOnGround;
+    auto const startsGrounded = player->m_isOnGround;
+    auto const impulse = (player->m_isRobot ? 500.f : 455.f)
+        * std::clamp(player->m_vehicleSize, 0.5f, 1.5f);
 
-    if (press && player->m_isOnGround && (player->m_isRobot || (!modeShip && !modeUfo && !modeWave && !modeBall && !modeSpider))) {
-        auto const impulse = (player->m_isRobot ? 500.f : 455.f) * std::clamp(player->m_vehicleSize, 0.5f, 1.5f);
-        vy = -gravityDirection * impulse;
-    }
-    if (press && modeUfo) vy = -gravityDirection * 390.f;
-    if (press && modeBall) vy = -gravityDirection * vy;
-    if (press && modeSpider) vy = -gravityDirection * 350.f;
+    for (int step = 0; step < horizonFrames * substeps; ++step) {
+        auto const frameIndex = step / substeps;
+        auto const stepDt = frameDt / static_cast<float>(substeps);
+        auto const elapsed = static_cast<float>(step + 1) * stepDt;
+        auto const inputActive = press && frameIndex >= delayFrames
+            && frameIndex < delayFrames + std::max(1, holdFrames);
 
-    for (int step = 0; step < kRolloutSteps; ++step) {
-        auto const time = frameDt * static_cast<float>(step + 1);
-        if (modeWave) {
-            vy = (press ? -gravityDirection : gravityDirection) * 420.f;
-        } else if (modeShip && press) {
-            vy += -gravityDirection * gravity * 2.4f * frameDt;
-        } else if (player->m_isRobot && press && step < holdFrames) {
-            vy += -gravityDirection * gravity * 0.55f * frameDt;
+        if (press && !jumped && frameIndex == delayFrames) {
+            if (startsGrounded && !airborne && !modeShip && !modeUfo && !modeWave && !modeBall && !modeSpider) {
+                vy = -gravityDirection * impulse;
+                jumped = true;
+            } else if (!airborne && modeUfo) {
+                vy = -gravityDirection * 390.f;
+                jumped = true;
+            } else if (!airborne && modeBall) {
+                vy = -gravityDirection * vy;
+                jumped = true;
+            } else if (!airborne && modeSpider) {
+                vy = -gravityDirection * 350.f;
+                jumped = true;
+            }
         }
-        y += vy * frameDt + 0.5f * g * frameDt * frameDt;
-        vy += g * frameDt;
 
-        auto const xShift = speed * time;
+        if (modeWave) {
+            vy = (inputActive ? -gravityDirection : gravityDirection) * 420.f;
+        } else if (modeShip && inputActive) {
+            vy += -gravityDirection * gravity * 2.4f * stepDt;
+        } else if (player->m_isRobot && inputActive && jumped) {
+            vy += -gravityDirection * gravity * 0.55f * stepDt;
+        }
+
+        // A grounded player remains supported until the simulated jump begins.
+        // This avoids the old rollout incorrectly dropping the player at t=0.
+        if (jumped || airborne) {
+            y += vy * stepDt + 0.5f * g * stepDt * stepDt;
+            vy += g * stepDt;
+        }
+
+        auto const xShift = speed * elapsed;
         auto const yShift = y - centerY(initialRect);
         auto const predicted = CCRect(initialRect.origin.x + xShift,
             initialRect.origin.y + yShift, initialRect.size.width, initialRect.size.height);
+
         for (auto* object : objects) {
             if (!isBlockingObject(object)) continue;
             if (overlaps(predicted, object->getObjectRect())) return false;
         }
-        // A long fall past the player's current support plane is treated as a
-        // failed rollout; a short ledge can still be crossed by the jump path.
+
+        // Track whether the virtual player still has a supporting surface.
+        // A delayed jump after walking off a ledge must not be scored as viable.
+        if (startsGrounded && !jumped && !airborne) {
+            auto const playerSurface = player->m_isUpsideDown ? topOf(predicted) : bottomOf(predicted);
+            bool hasSupport = false;
+            for (auto* object : objects) {
+                if (!object || (object->m_objectType != GameObjectType::Solid
+                    && object->m_objectType != GameObjectType::Breakable)) continue;
+                auto const platform = object->getObjectRect();
+                auto const platformSurface = player->m_isUpsideDown ? bottomOf(platform) : topOf(platform);
+                auto const horizontalOverlap = std::min(rightOf(predicted), rightOf(platform))
+                    - std::max(leftOf(predicted), leftOf(platform));
+                if (horizontalOverlap >= predicted.size.width * 0.2f
+                    && std::fabs(platformSurface - playerSurface) <= 10.f) {
+                    hasSupport = true;
+                    break;
+                }
+            }
+            if (!hasSupport) airborne = true;
+        }
+
         if (!player->m_isUpsideDown && y < centerY(initialRect) - playerHeight * 5.f) return false;
         if (player->m_isUpsideDown && y > centerY(initialRect) + playerHeight * 5.f) return false;
     }
@@ -355,6 +404,8 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         state.pulseFrames = 0;
         state.cooldown = 0;
         state.flightTargetInitialized = false;
+        state.plannedJumpDelay = -1;
+        state.plannedJumpHold = 1;
         state.lastOrb = nullptr;
         state.lastMode = signature;
         state.lastUpsideDown = player->m_isUpsideDown;
@@ -453,38 +504,101 @@ void LiveBot::updatePlayer(PlayerObject* player, int playerIndex, float dt,
         return;
     }
 
-    if (!player->m_isOnGround || state.cooldown > 0) return;
+    if (!player->m_isOnGround) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
+    if (state.cooldown > 0) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
     auto const obstacleClose = threat && threatDistance <= triggerDistance;
     auto const edgeClose = edgeDistance <= triggerDistance;
-    if (!obstacleClose && !edgeClose) return;
+    if (!obstacleClose && !edgeClose) {
+        state.plannedJumpDelay = -1;
+        return;
+    }
 
-    auto const noInputSurvives = rolloutSurvives(player, nearby, false, 0,
-        state.gravityEstimate, dt);
     auto const obstacleRect = threat ? threat->getObjectRect() : CCRect(0.f, 0.f, 0.f, 0.f);
     auto const obstacleHeight = threat ? std::max(0.f, topOf(obstacleRect) - bottomOf(playerRect)) : 0.f;
     auto const highRobotJump = player->m_isRobot
         && obstacleClose && obstacleHeight > playerRect.size.height * 1.25f;
     auto const jumpHold = highRobotJump ? 7 : 1;
-    auto const jumpSurvives = rolloutSurvives(player, nearby, true, jumpHold,
-        state.gravityEstimate, dt);
-
-    // Prefer the no-input trajectory whenever it is already safe. Only jump
-    // for a confirmed predicted collision, or at the last safe moment before
-    // losing platform support (the rollout currently models obstacles, not ledges).
     auto const imminentEdge = edgeClose
         && edgeDistance <= std::max(8.f, triggerDistance * 0.25f);
-    if (jumpSurvives && (!noInputSurvives || imminentEdge)) {
-        pulse(player, playerIndex, jumpHold);
-        state.lastDecisionWasJump = true;
-        state.lastDecisionTick = MacroManager::get().tick();
-        state.lastThreatDistance = threat ? threatDistance : edgeDistance;
-        state.hasRecentDecision = true;
-        state.cooldown = highRobotJump ? 16 : 9;
-    } else if (obstacleClose || edgeClose) {
-        state.lastDecisionWasJump = false;
-        state.lastDecisionTick = MacroManager::get().tick();
-        state.lastThreatDistance = threat ? threatDistance : edgeDistance;
-        state.hasRecentDecision = true;
+
+    auto const decisionDistance = obstacleClose && (!edgeClose || threatDistance <= edgeDistance)
+        ? threatDistance : edgeDistance;
+    // Select an absolute virtual simulation rate, then convert it to the
+    // number of substeps required for this real frame duration.
+    int targetSimulationHz = 60;
+    if (decisionDistance <= 18.f) targetSimulationHz = 960;
+    else if (decisionDistance <= 30.f) targetSimulationHz = 480;
+    else if (decisionDistance <= 48.f) targetSimulationHz = 240;
+    else if (decisionDistance <= 80.f) targetSimulationHz = 120;
+    auto const frameDt = std::clamp(dt, 1.f / 240.f, 1.f / 30.f);
+    auto const simulationSubsteps = std::clamp(
+        static_cast<int>(std::ceil(frameDt * static_cast<float>(targetSimulationHz))), 1, 32);
+
+    auto const noInputSurvives = rolloutSurvives(player, nearby, false, 0,
+        state.gravityEstimate, dt, 0, simulationSubsteps);
+
+    if (noInputSurvives && !imminentEdge) {
+        state.plannedJumpDelay = -1;
+        state.plannedJumpHold = 1;
+        return;
+    }
+
+    // Search a short sequence of candidate jump times. The farthest safe delay
+    // avoids jumping prematurely; the countdown is kept monotonic between frames.
+    auto const speed = std::max(80.f, std::fabs(player->m_playerSpeed));
+    auto const travelFrames = static_cast<int>(decisionDistance / (speed * frameDt));
+    auto const maxDelay = std::clamp(travelFrames - 2, 0, 8);
+    int bestDelay = -1;
+    for (int delay = 0; delay <= maxDelay; ++delay) {
+        if (rolloutSurvives(player, nearby, true, jumpHold, state.gravityEstimate,
+                dt, delay, simulationSubsteps)) {
+            bestDelay = delay;
+        }
+    }
+
+    if (bestDelay >= 0) {
+        if (state.plannedJumpDelay < 0) {
+            state.plannedJumpDelay = bestDelay;
+            state.plannedJumpHold = jumpHold;
+        } else {
+            state.plannedJumpDelay = std::min(state.plannedJumpDelay, bestDelay);
+            state.plannedJumpHold = jumpHold;
+        }
+
+        if (state.plannedJumpDelay <= 0) {
+            pulse(player, playerIndex, state.plannedJumpHold);
+            state.plannedJumpDelay = -1;
+            state.lastDecisionWasJump = true;
+            state.lastDecisionTick = MacroManager::get().tick();
+            state.lastThreatDistance = decisionDistance;
+            state.hasRecentDecision = true;
+            state.cooldown = highRobotJump ? 16 : 9;
+        } else {
+            --state.plannedJumpDelay;
+        }
+    } else {
+        state.plannedJumpDelay = -1;
+        // Last-resort behavior: if a collision is predicted and every delayed
+        // candidate fails, try the immediate jump rather than remaining idle.
+        if (!noInputSurvives && obstacleClose) {
+            pulse(player, playerIndex, jumpHold);
+            state.lastDecisionWasJump = true;
+            state.lastDecisionTick = MacroManager::get().tick();
+            state.lastThreatDistance = decisionDistance;
+            state.hasRecentDecision = true;
+            state.cooldown = highRobotJump ? 16 : 9;
+        } else {
+            state.lastDecisionWasJump = false;
+            state.lastDecisionTick = MacroManager::get().tick();
+            state.lastThreatDistance = decisionDistance;
+            state.hasRecentDecision = true;
+        }
     }
 }
 
