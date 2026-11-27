@@ -1,3 +1,8 @@
+# 1.0.5
+- Made Safe Mode mandatory for attempts using Live Bot or Playback; it remains active after automation is switched off and resets on a full restart or level exit.
+- Removed the Safe Mode toggle and added a persistent in-level `SAFE MODE ACTIVE` indicator.
+- Blocked the PlayLayer level-completion path during protected attempts, including the mod's completion-save routine.
+
 # 1.0.4
 - Added an optional, persistent Safe Mode with conservative lookahead and a 240 Hz virtual simulation cap.
 - Safe Mode limits Live Bot automation to standard cube and robot forms; other movement modes are left to manual control.
