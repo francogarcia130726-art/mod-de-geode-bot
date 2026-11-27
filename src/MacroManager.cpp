@@ -82,12 +82,12 @@ MacroManager::MacroManager() {
     m_lookaheadMultiplier = std::clamp(
         mod->getSavedValue<float>("lookahead-multiplier", 1.f), 0.70f, 1.40f
     );
-    m_safeMode = mod->getSavedValue<bool>("safe-mode", false);
 }
 
 BotMode MacroManager::mode() const { return m_mode; }
 
 void MacroManager::setMode(BotMode mode) {
+    if (mode == BotMode::LiveBot || mode == BotMode::Playback) activateSafeModeForAttempt();
     if (m_mode == mode) {
         if (mode == BotMode::Record) resetAttempt(true);
         if (mode == BotMode::Playback) {
@@ -133,6 +133,8 @@ int MacroManager::levelID() const { return m_levelID; }
 PlayLayer* MacroManager::activeLayer() const { return m_activeLayer; }
 
 void MacroManager::beginLevel(PlayLayer* layer, int levelID, std::string levelName) {
+    m_safeModeAttemptActive = false;
+    if (m_mode == BotMode::LiveBot || m_mode == BotMode::Playback) activateSafeModeForAttempt();
     m_activeLayer = layer;
     m_levelID = levelID;
     m_levelName = levelName.empty() ? "Unknown Level" : std::move(levelName);
@@ -276,6 +278,11 @@ void MacroManager::onCheckpointPlaced() {
 
 void MacroManager::onLevelReset(bool checkpointRestore) {
     releasePlaybackButtons(m_lastPlayer1, m_lastPlayer2);
+    // Checkpoint restores belong to the same attempt; a full restart resets it.
+    if (!checkpointRestore) {
+        m_safeModeAttemptActive = false;
+        if (m_mode == BotMode::LiveBot || m_mode == BotMode::Playback) activateSafeModeForAttempt();
+    }
     if (checkpointRestore && !m_checkpoints.empty()) {
         auto const mark = m_checkpoints.back();
         if (m_mode == BotMode::Record || (m_mode == BotMode::LiveBot && m_autoRecordFromLiveBot)) {
@@ -330,11 +337,8 @@ void MacroManager::setLookaheadMultiplier(float value) {
     m_lookaheadMultiplier = std::clamp(value, 0.70f, 1.40f);
     Mod::get()->setSavedValue("lookahead-multiplier", m_lookaheadMultiplier);
 }
-bool MacroManager::safeMode() const { return m_safeMode; }
-void MacroManager::setSafeMode(bool enabled) {
-    m_safeMode = enabled;
-    Mod::get()->setSavedValue("safe-mode", enabled);
-}
+bool MacroManager::safeMode() const { return m_safeModeAttemptActive; }
+void MacroManager::activateSafeModeForAttempt() { m_safeModeAttemptActive = true; }
 
 void MacroManager::clearMacro() {
     m_actions.clear();
