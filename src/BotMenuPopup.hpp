@@ -16,6 +16,7 @@ protected:
 private:
     void switchTab(int tab);
     void refreshPage();
+    void rebuildPage(float dt);
     void renderControlPage();
     void renderMacroPage();
     void renderSettingsPage();
