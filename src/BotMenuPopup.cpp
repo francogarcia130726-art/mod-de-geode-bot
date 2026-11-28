@@ -68,7 +68,7 @@ bool BotMenuPopup::init() {
     addButton(m_tabMenu, "Macros", { 0.f, 0.f }, menu_selector(BotMenuPopup::onTabMacros), 0.48f);
     addButton(m_tabMenu, "Ajustes", { 130.f, 0.f }, menu_selector(BotMenuPopup::onTabSettings), 0.48f);
 
-    refreshPage();
+    rebuildPage(0.f);
     return true;
 }
 
@@ -104,6 +104,13 @@ void BotMenuPopup::switchTab(int tab) {
 }
 
 void BotMenuPopup::refreshPage() {
+    // Never destroy/recreate menu items from inside their own touch callback.
+    // Cocos2d may still be dispatching the current item when the callback runs.
+    this->unschedule(schedule_selector(BotMenuPopup::rebuildPage));
+    this->scheduleOnce(schedule_selector(BotMenuPopup::rebuildPage), 0.f);
+}
+
+void BotMenuPopup::rebuildPage(float) {
     m_nameInput = nullptr;
     if (m_pageRoot) {
         m_pageRoot->removeFromParentAndCleanup(true);
